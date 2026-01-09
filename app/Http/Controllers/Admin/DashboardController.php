@@ -4,47 +4,58 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Report;
 use App\Models\Article;
 use App\Models\Forum;
-use App\Models\Report;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // Manual admin check
-        if (!in_array(auth()->user()->role, ['admin', 'moderator'])) {
-            abort(403, 'Unauthorized action.');
-        }
+        // Total counts
+        $totalUsers = User::where('role', '!=', 'admin')->count();
+        $totalReports = Report::count();
+        $totalArticles = Article::count();
+        $totalForums = Forum::count();
 
-        // Statistics
-        $stats = [
-            'total_users' => User::where('role', 'user')->count(),
-            'total_articles' => Article::count(),
-            'total_forums' => Forum::count(),
-            'total_reports' => Report::count(),
+        // Active users (logged in within last 30 days)
+        $activeUsers = User::where('role', '!=', 'admin')
+            ->where('last_login_at', '>=', Carbon::now()->subDays(30))
+            ->count();
 
-            'pending_reports' => Report::where('status', 'pending')->count(),
-            'active_users' => User::where('status', 'active')->count(),
-            'published_articles' => Article::where('status', 'published')->count(),
-        ];
+        // Published articles
+        $publishedArticles = Article::where('status', 'published')->count();
 
-        // Recent data
+        // Active forums
+        $activeForums = Forum::where('status', 'active')->count();
+
+        // Recent reports (last 10)
         $recentReports = Report::with(['user', 'category'])
             ->latest()
-            ->limit(5)
+            ->take(10)
             ->get();
 
-        $recentUsers = User::latest()
-            ->limit(5)
-            ->get();
+        // Report statistics by status
+        $reportStats = [
+            'pending' => Report::where('status', 'pending')->count(),
+            'verified' => Report::where('status', 'verified')->count(),
+            'in_progress' => Report::where('status', 'in_progress')->count(),
+            'resolved' => Report::where('status', 'resolved')->count(),
+            'rejected' => Report::where('status', 'rejected')->count(),
+        ];
 
-        $recentArticles = Article::with('author')
-            ->latest()
-            ->limit(5)
-            ->get();
-
-        return view('admin.dashboard', compact('stats', 'recentReports', 'recentUsers', 'recentArticles'));
+        return view('admin.dashboard', compact(
+            'totalUsers',
+            'activeUsers',
+            'totalReports',
+            'totalArticles',
+            'publishedArticles',
+            'totalForums',
+            'activeForums',
+            'recentReports',
+            'reportStats'
+        ));
     }
 }

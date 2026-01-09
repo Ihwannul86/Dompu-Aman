@@ -3,206 +3,151 @@
 namespace App\Http\Controllers;
 
 use App\Models\Forum;
-use App\Models\ForumComment;
-use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 
 class ForumController extends Controller
 {
-    public function __construct()
+    public function index()
     {
-        $this->middleware('auth')->except(['index', 'show']);
+        $forums = Forum::with(['user'])
+            ->where('status', 'active')
+            ->withCount('comments')
+            ->latest()
+            ->paginate(12);
+
+        return view('forums.index', compact('forums'));
     }
 
-    public function index(Request $request)
+    public function show($slug)
     {
-        $query = Forum::active()->with('user', 'category');
+        $forum = Forum::with(['user', 'comments.user'])
+            ->where('slug', $slug)
+            ->firstOrFail();
 
-        if ($request->filled('category')) {
-            $query->where('category_id', $request->category);
-        }
+        // Increment views
+        $forum->increment('views');
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('content', 'like', "%{$search}%");
-            });
-        }
-
-        $sortBy = $request->get('sort', 'latest');
-        switch ($sortBy) {
-            case 'popular':
-                $query->orderBy('view_count', 'desc');
-                break;
-            case 'commented':
-                $query->orderBy('comment_count', 'desc');
-                break;
-            default:
-                $query->latest();
-        }
-
-        $forums = $query->paginate(15);
-        $categories = Category::active()->byType('forum')->ordered()->get();
-        $pinnedForums = Forum::active()->pinned()->take(3)->get();
-
-        return view('forums.index', compact('forums', 'categories', 'pinnedForums'));
+        return view('forums.show', compact('forum'));
     }
 
     public function create()
     {
-        $categories = Category::active()->byType('forum')->ordered()->get();
-        return view('forums.create', compact('categories'));
+        if (!auth()->check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu');
+        }
+
+        return view('forums.create');
     }
 
     public function store(Request $request)
     {
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+
         $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:5120',
-            'tags' => 'nullable|string',
+            'image' => 'nullable|image|max:2048',
         ]);
 
         $validated['user_id'] = auth()->id();
         $validated['slug'] = Str::slug($validated['title']) . '-' . time();
         $validated['status'] = 'active';
 
-        if ($request->hasFile('images')) {
-            $images = [];
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('forums/images', 'public');
-                $images[] = $path;
-            }
-            $validated['images'] = $images;
-        }
-
-        if ($request->filled('tags')) {
-            $validated['tags'] = array_map('trim', explode(',', $validated['tags']));
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('forums', 'public');
         }
 
         $forum = Forum::create($validated);
 
         return redirect()->route('forums.show', $forum->slug)
-                        ->with('success', 'Forum berhasil dibuat!');
-    }
-
-    public function show($slug)
-    {
-        $forum = Forum::active()
-                    ->with('user', 'category')
-                    ->where('slug', $slug)
-                    ->firstOrFail();
-
-        $forum->increment('view_count');
-
-        $comments = $forum->comments()
-                         ->approved()
-                         ->parent()
-                         ->with(['user', 'replies.user'])
-                         ->latest()
-                         ->paginate(20);
-
-        return view('forums.show', compact('forum', 'comments'));
+            ->with('success', 'Forum berhasil dibuat!');
     }
 
     public function edit($slug)
     {
-        $forum = Forum::where('slug', $slug)->firstOrFail();
-
-        if (auth()->id() !== $forum->user_id && !auth()->user()->isAdmin()) {
-            abort(403);
+        if (!auth()->check()) {
+            return redirect()->route('login');
         }
 
-        $categories = Category::active()->byType('forum')->ordered()->get();
-        return view('forums.edit', compact('forum', 'categories'));
+        $forum = Forum::where('slug', $slug)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        return view('forums.edit', compact('forum'));
     }
 
     public function update(Request $request, $slug)
     {
-        $forum = Forum::where('slug', $slug)->firstOrFail();
-
-        if (auth()->id() !== $forum->user_id && !auth()->user()->isAdmin()) {
-            abort(403);
+        if (!auth()->check()) {
+            return redirect()->route('login');
         }
+
+        $forum = Forum::where('slug', $slug)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
 
         $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:5120',
-            'tags' => 'nullable|string',
+            'image' => 'nullable|image|max:2048',
         ]);
 
-        if ($validated['title'] !== $forum->title) {
-            $validated['slug'] = Str::slug($validated['title']) . '-' . time();
-        }
-
-        if ($request->hasFile('images')) {
-            if ($forum->images) {
-                foreach ($forum->images as $oldImage) {
-                    Storage::disk('public')->delete($oldImage);
-                }
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($forum->image) {
+                \Storage::disk('public')->delete($forum->image);
             }
-
-            $images = [];
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('forums/images', 'public');
-                $images[] = $path;
-            }
-            $validated['images'] = $images;
-        }
-
-        if ($request->filled('tags')) {
-            $validated['tags'] = array_map('trim', explode(',', $validated['tags']));
+            $validated['image'] = $request->file('image')->store('forums', 'public');
         }
 
         $forum->update($validated);
 
         return redirect()->route('forums.show', $forum->slug)
-                        ->with('success', 'Forum berhasil diupdate!');
+            ->with('success', 'Forum berhasil diperbarui!');
     }
 
     public function destroy($slug)
     {
-        $forum = Forum::where('slug', $slug)->firstOrFail();
-
-        if (auth()->id() !== $forum->user_id && !auth()->user()->isAdmin()) {
-            abort(403);
+        if (!auth()->check()) {
+            return redirect()->route('login');
         }
 
-        if ($forum->images) {
-            foreach ($forum->images as $image) {
-                Storage::disk('public')->delete($image);
-            }
+        $forum = Forum::where('slug', $slug)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        // Delete image if exists
+        if ($forum->image) {
+            \Storage::disk('public')->delete($forum->image);
         }
 
         $forum->delete();
 
         return redirect()->route('forums.index')
-                        ->with('success', 'Forum berhasil dihapus!');
+            ->with('success', 'Forum berhasil dihapus!');
     }
 
     public function storeComment(Request $request, $slug)
     {
+        if (!auth()->check()) {
+            return redirect()->route('login');
+        }
+
         $forum = Forum::where('slug', $slug)->firstOrFail();
 
         $validated = $request->validate([
             'content' => 'required|string',
-            'parent_id' => 'nullable|exists:forum_comments,id',
         ]);
 
-        $validated['forum_id'] = $forum->id;
-        $validated['user_id'] = auth()->id();
-        $validated['is_approved'] = true;
+        $forum->comments()->create([
+            'user_id' => auth()->id(),
+            'content' => $validated['content'],
+        ]);
 
-        ForumComment::create($validated);
-
-        $forum->increment('comment_count');
-
-        return redirect()->back()->with('success', 'Komentar berhasil ditambahkan!');
+        return back()->with('success', 'Komentar berhasil ditambahkan!');
     }
 }

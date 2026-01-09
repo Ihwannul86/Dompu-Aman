@@ -3,23 +3,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
         'email',
         'password',
-        'phone',
-        'address',
         'role',
-        'status',
-        'avatar',
+        'last_login_at',
     ];
 
     protected $hidden = [
@@ -27,25 +23,24 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-    ];
-
-    // Relationships
-    public function articles()
+    protected function casts(): array
     {
-        return $this->hasMany(Article::class);
+        return [
+            'email_verified_at' => 'datetime',
+            'last_login_at' => 'datetime',
+            'password' => 'hashed',
+        ];
     }
 
+    // Relationships
     public function reports()
     {
         return $this->hasMany(Report::class);
     }
 
-    public function assignedReports()
+    public function articles()
     {
-        return $this->hasMany(Report::class, 'assigned_to');
+        return $this->hasMany(Article::class);
     }
 
     public function forums()
@@ -53,36 +48,15 @@ class User extends Authenticatable
         return $this->hasMany(Forum::class);
     }
 
-    public function forumComments()
+    public function forumReplies()
     {
-        return $this->hasMany(ForumComment::class);
+        return $this->hasMany(ForumReply::class);
     }
 
-    public function roles()
-    {
-        return $this->belongsToMany(Role::class);
-    }
-
-    // Scopes
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
-    }
-
-    public function scopeByRole($query, $role)
-    {
-        return $query->where('role', $role);
-    }
-
-    // Helper Methods
+    // Helper methods
     public function isAdmin()
     {
         return $this->role === 'admin';
-    }
-
-    public function isModerator()
-    {
-        return $this->role === 'moderator';
     }
 
     public function isUser()

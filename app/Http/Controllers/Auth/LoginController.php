@@ -23,26 +23,32 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
 
+            // Update last login time
+            Auth::user()->update([
+                'last_login_at' => now()
+            ]);
+
             // Redirect based on role
-            if (Auth::user()->isAdmin() || Auth::user()->isModerator()) {
-                return redirect()->intended('/admin/dashboard');
+            if (Auth::user()->role === 'admin') {
+                return redirect()->intended('/admin/dashboard')
+                    ->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
             }
 
-            return redirect()->intended('/');
+            return redirect()->intended('/')
+                ->with('success', 'Selamat datang kembali, ' . Auth::user()->name . '!');
         }
 
         return back()->withErrors([
             'email' => 'Email atau password salah.',
-        ])->onlyInput('email');
+        ])->withInput($request->only('email'));
     }
 
     public function logout(Request $request)
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')->with('success', 'Anda telah logout.');
     }
 }

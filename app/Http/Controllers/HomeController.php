@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Article;
-use App\Models\Forum;
 use App\Models\Report;
+use App\Models\Forum;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -13,8 +13,8 @@ class HomeController extends Controller
     public function index()
     {
         $stats = [
-            'total_users' => User::where('status', 'active')->count(),
-            'total_articles' => Article::where('status', 'published')->count(),
+            'total_users' => User::count(),
+            'total_articles' => Article::count(),
             'total_forums' => Forum::count(),
             'total_reports' => Report::count(),
         ];
@@ -24,7 +24,14 @@ class HomeController extends Controller
 
     public function about()
     {
-        return view('about');
+        $stats = [
+            'total_users' => User::count(),
+            'total_articles' => Article::count(),
+            'total_forums' => Forum::count(),
+            'total_reports' => Report::count(),
+        ];
+
+        return view('about', compact('stats'));
     }
 
     public function contact()
@@ -34,6 +41,7 @@ class HomeController extends Controller
 
     public function contactSubmit(Request $request)
     {
+        // Handle contact form submission
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email',
@@ -41,8 +49,8 @@ class HomeController extends Controller
             'message' => 'required|string',
         ]);
 
-        // TODO: Send email or store in database
+        // TODO: Send email or save to database
 
-        return redirect()->route('home')->with('success', 'Pesan Anda telah dikirim!');
+        return back()->with('success', 'Pesan berhasil dikirim!');
     }
 }
