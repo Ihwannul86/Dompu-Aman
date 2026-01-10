@@ -15,7 +15,7 @@
                 <i class="fas fa-filter mr-2"></i>
                 Filter
             </button>
-            <a href="{{ route('admin.articles.create') }}" class="btn btn-primary">
+            <a href="{{ url('/admin/articles/create') }}" class="btn btn-primary">
                 <i class="fas fa-plus mr-2"></i>
                 Buat Artikel
             </a>
@@ -107,16 +107,30 @@
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4">
                                 <div class="flex items-center">
-                                    @if($article->thumbnail)
-                                        <img src="{{ Storage::url($article->thumbnail) }}" alt="Thumbnail" class="w-16 h-16 rounded-lg object-cover mr-4">
+                                    @if($article->featured_image)
+                                        <img src="{{ Storage::url($article->featured_image) }}" alt="Thumbnail" class="w-16 h-16 rounded-lg object-cover mr-4">
                                     @else
-                                        <div class="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center mr-4">
-                                            <i class="fas fa-image text-gray-400"></i>
+                                        <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center mr-4">
+                                            <i class="fas fa-image text-white text-xl"></i>
                                         </div>
                                     @endif
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-900">{{ Str::limit($article->title, 40) }}</div>
-                                        <div class="text-sm text-gray-500">{{ Str::limit(strip_tags($article->content), 60) }}</div>
+                                    <div class="max-w-xs">
+                                        <div class="text-sm font-medium text-gray-900 flex items-center">
+                                            {{ Str::limit($article->title, 40) }}
+                                            @if($article->article_type === 'external')
+                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                                    Eksternal
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="text-sm text-gray-500 mt-1">{{ Str::limit(strip_tags($article->content), 60) }}</div>
+                                        @if($article->article_type === 'external' && $article->source_name)
+                                            <p class="text-xs text-blue-600 mt-1">
+                                                <i class="fas fa-link mr-1"></i>
+                                                Sumber: {{ $article->source_name }}
+                                            </p>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -124,11 +138,11 @@
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10">
                                         <div class="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center text-white font-semibold">
-                                            {{ strtoupper(substr($article->author->name, 0, 1)) }}
+                                            {{ strtoupper(substr($article->user->name, 0, 1)) }}
                                         </div>
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-gray-900">{{ $article->author->name }}</div>
+                                        <div class="text-sm font-medium text-gray-900">{{ $article->user->name }}</div>
                                     </div>
                                 </div>
                             </td>
@@ -153,23 +167,47 @@
                                 {{ $article->created_at->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <a href="{{ route('admin.articles.show', $article) }}" class="text-primary-600 hover:text-primary-900 mr-3">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                <a href="#" class="text-green-600 hover:text-green-900 mr-3">
+                                @if($article->article_type === 'external' && $article->external_url)
+                                    <a href="{{ $article->external_url }}"
+                                       target="_blank"
+                                       class="text-blue-600 hover:text-blue-900 mr-3"
+                                       title="Buka Sumber">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                @else
+                                    <a href="{{ route('admin.articles.show', $article) }}"
+                                       class="text-primary-600 hover:text-primary-900 mr-3"
+                                       title="Lihat Detail">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                @endif
+
+                                <a href="{{ route('admin.articles.edit', $article) }}"
+                                   class="text-green-600 hover:text-green-900 mr-3"
+                                   title="Edit Artikel">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <button class="text-red-600 hover:text-red-900">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+
+                                <form action="{{ route('admin.articles.destroy', $article) }}"
+                                      method="POST"
+                                      class="inline-block"
+                                      onsubmit="return confirm('⚠️ Yakin ingin menghapus artikel \'{{ Str::limit($article->title, 50) }}\'?\n\nData tidak dapat dikembalikan!')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                            class="text-red-600 hover:text-red-900"
+                                            title="Hapus Artikel">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                                <i class="fas fa-inbox text-4xl mb-4 text-gray-300"></i>
-                                <p>Belum ada artikel</p>
-                                <a href="{{ route('admin.articles.create') }}" class="btn btn-primary mt-4">
+                                <i class="fas fa-inbox text-4xl mb-4 text-gray-300 block"></i>
+                                <p class="mb-4">Belum ada artikel</p>
+                                <a href="{{ url('/admin/articles/create') }}" class="btn btn-primary inline-block">
                                     <i class="fas fa-plus mr-2"></i>
                                     Buat Artikel Pertama
                                 </a>

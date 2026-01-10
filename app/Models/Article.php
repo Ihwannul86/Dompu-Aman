@@ -15,20 +15,25 @@ class Article extends Model
         'category_id',
         'title',
         'slug',
+        'article_type',      // internal or external
+        'external_url',      // URL untuk artikel eksternal
+        'source_name',       // Nama sumber (Kompas, Detik, dll)
         'excerpt',
         'content',
         'featured_image',
-        'tags',
         'status',
+        'published_at',
+        'tags',
+        'views',
         'view_count',
         'like_count',
-        'published_at',
     ];
 
     protected $casts = [
         'tags' => 'array',
         'view_count' => 'integer',
         'like_count' => 'integer',
+        'views' => 'integer',
         'published_at' => 'datetime',
     ];
 
@@ -36,6 +41,12 @@ class Article extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Alias untuk user (agar bisa pakai $article->author)
+    public function author()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function category()
@@ -59,5 +70,20 @@ class Article extends Model
     public function scopeRecent($query)
     {
         return $query->orderBy('published_at', 'desc');
+    }
+
+    // Accessor untuk cek apakah artikel eksternal
+    public function getIsExternalAttribute()
+    {
+        return $this->article_type === 'external';
+    }
+
+    // Accessor untuk URL artikel (internal atau eksternal)
+    public function getUrlAttribute()
+    {
+        if ($this->is_external && $this->external_url) {
+            return $this->external_url;
+        }
+        return route('articles.show', $this->slug);
     }
 }

@@ -18,25 +18,8 @@
     <div class="container mx-auto px-6">
         <div class="max-w-3xl mx-auto">
             <div class="bg-white rounded-lg shadow-md p-8">
-                <form action="{{ route('reports.store') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('reports.store') }}" method="POST" enctype="multipart/form-data" id="reportForm">
                     @csrf
-
-                    <!-- Title -->
-                    <div class="mb-6">
-                        <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
-                            Judul Laporan <span class="text-red-500">*</span>
-                        </label>
-                        <input type="text"
-                               id="title"
-                               name="title"
-                               value="{{ old('title') }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent @error('title') border-red-500 @enderror"
-                               placeholder="Contoh: Pencurian Motor di Jalan Pahlawan"
-                               required>
-                        @error('title')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
 
                     <!-- Category -->
                     <div class="mb-6">
@@ -59,6 +42,25 @@
                         @enderror
                     </div>
 
+                    <!-- Incident Type -->
+                    <div class="mb-6">
+                        <label for="incident_type" class="block text-sm font-medium text-gray-700 mb-2">
+                            Jenis Insiden
+                        </label>
+                        <select id="incident_type"
+                                name="incident_type"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <option value="umum" {{ old('incident_type') == 'umum' ? 'selected' : '' }}>Umum</option>
+                            <option value="darurat" {{ old('incident_type') == 'darurat' ? 'selected' : '' }}>Darurat</option>
+                            <option value="kriminal" {{ old('incident_type') == 'kriminal' ? 'selected' : '' }}>Kriminal</option>
+                            <option value="sosial" {{ old('incident_type') == 'sosial' ? 'selected' : '' }}>Sosial</option>
+                            <option value="lingkungan" {{ old('incident_type') == 'lingkungan' ? 'selected' : '' }}>Lingkungan</option>
+                        </select>
+                        @error('incident_type')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <!-- Location -->
                     <div class="mb-6">
                         <label for="location" class="block text-sm font-medium text-gray-700 mb-2">
@@ -69,11 +71,59 @@
                                name="location"
                                value="{{ old('location') }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent @error('location') border-red-500 @enderror"
-                               placeholder="Contoh: Jl. Pahlawan No. 123, Kelurahan Kendo"
+                               placeholder="Contoh: Jl. Pahlawan, Kelurahan Kendo"
                                required>
                         @error('location')
                             <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                         @enderror
+                    </div>
+
+                    <!-- Detailed Address -->
+                    <div class="mb-6">
+                        <label for="address" class="block text-sm font-medium text-gray-700 mb-2">
+                            Alamat Lengkap (Opsional)
+                        </label>
+                        <input type="text"
+                               id="address"
+                               name="address"
+                               value="{{ old('address') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                               placeholder="Contoh: No. 123, RT 02/RW 03">
+                        @error('address')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Date and Time -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label for="date" class="block text-sm font-medium text-gray-700 mb-2">
+                                Tanggal Kejadian <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date"
+                                   id="date"
+                                   name="date"
+                                   value="{{ old('date', date('Y-m-d')) }}"
+                                   max="{{ date('Y-m-d') }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent @error('date') border-red-500 @enderror"
+                                   required>
+                            @error('date')
+                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="time" class="block text-sm font-medium text-gray-700 mb-2">
+                                Waktu Kejadian (Opsional)
+                            </label>
+                            <input type="time"
+                                   id="time"
+                                   name="time"
+                                   value="{{ old('time') }}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            @error('time')
+                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
 
                     <!-- Description -->
@@ -90,7 +140,7 @@
                         @error('description')
                             <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                         @enderror
-                        <p class="text-sm text-gray-500 mt-1">Jelaskan kejadian secara detail termasuk waktu, pelaku (jika ada), dan kronologi</p>
+                        <p class="text-sm text-gray-500 mt-1">Minimal 20 karakter. Jelaskan kronologi kejadian secara detail.</p>
                     </div>
 
                     <!-- Image Upload -->
@@ -109,12 +159,12 @@
                                        name="image"
                                        type="file"
                                        class="hidden"
-                                       accept="image/*"
+                                       accept="image/jpeg,image/png,image/jpg"
                                        onchange="previewImage(event)">
                             </label>
                         </div>
                         <div id="imagePreview" class="mt-4 hidden">
-                            <img src="" alt="Preview" class="max-w-full h-48 rounded-lg">
+                            <img src="" alt="Preview" class="max-w-full h-48 rounded-lg mx-auto">
                         </div>
                         @error('image')
                             <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
@@ -152,6 +202,7 @@
 
 @push('scripts')
 <script>
+// Preview image upload
 function previewImage(event) {
     const preview = document.getElementById('imagePreview');
     const img = preview.querySelector('img');
@@ -165,6 +216,36 @@ function previewImage(event) {
         reader.readAsDataURL(event.target.files[0]);
     }
 }
+
+// Auto refresh CSRF token every 10 minutes to prevent 419 error
+setInterval(function() {
+    fetch('/refresh-csrf')
+        .then(response => response.json())
+        .then(data => {
+            document.querySelector('input[name="_token"]').value = data.token;
+            console.log('CSRF token refreshed successfully');
+        })
+        .catch(error => {
+            console.error('Failed to refresh CSRF token:', error);
+        });
+}, 600000); // 10 minutes
+
+// Handle form submit - check if session expired
+document.getElementById('reportForm').addEventListener('submit', function(e) {
+    const token = document.querySelector('input[name="_token"]').value;
+
+    if (!token || token === '') {
+        e.preventDefault();
+        alert('Session expired! Halaman akan di-refresh. Silakan submit ulang laporan Anda.');
+        location.reload();
+        return false;
+    }
+
+    // Show loading indicator
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Mengirim...';
+});
 </script>
 @endpush
 @endsection

@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Report extends Model
 {
-    use HasFactory, SoftDeletes;
+    use SoftDeletes;
 
     protected $fillable = [
         'report_number',
@@ -41,13 +40,11 @@ class Report extends Model
 
     protected $casts = [
         'is_anonymous' => 'boolean',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
-        'incident_date' => 'date',
         'victim_info' => 'array',
         'perpetrator_info' => 'array',
         'witness_info' => 'array',
         'evidence_files' => 'array',
+        'incident_date' => 'date',
         'resolved_at' => 'datetime',
     ];
 
@@ -62,47 +59,8 @@ class Report extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function assignedUser()
+    public function assignedTo()
     {
         return $this->belongsTo(User::class, 'assigned_to');
-    }
-
-    public function statusHistories()
-    {
-        return $this->hasMany(ReportStatusHistory::class);
-    }
-
-    // Scopes
-    public function scopePending($query)
-    {
-        return $query->where('status', 'pending');
-    }
-
-    public function scopeByStatus($query, $status)
-    {
-        return $query->where('status', $status);
-    }
-
-    public function scopeByPriority($query, $priority)
-    {
-        return $query->where('priority', $priority);
-    }
-
-    public function scopeRecent($query)
-    {
-        return $query->orderBy('created_at', 'desc');
-    }
-
-    // Generate Report Number
-    public static function generateReportNumber()
-    {
-        $date = now()->format('Ymd');
-        $lastReport = self::whereDate('created_at', now()->toDateString())
-                         ->orderBy('id', 'desc')
-                         ->first();
-
-        $number = $lastReport ? (int)substr($lastReport->report_number, -4) + 1 : 1;
-
-        return 'DA-' . $date . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
     }
 }

@@ -138,7 +138,7 @@
                         <i class="fas fa-flag text-blue-600 text-2xl mb-2"></i>
                         <p class="text-sm font-medium text-gray-900">Kelola Laporan</p>
                     </a>
-                    <a href="{{ route('admin.articles.index') }}" class="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-center">
+                    <a href="{{ url('/admin/articles') }}" class="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors text-center">
                         <i class="fas fa-newspaper text-green-600 text-2xl mb-2"></i>
                         <p class="text-sm font-medium text-gray-900">Kelola Artikel</p>
                     </a>

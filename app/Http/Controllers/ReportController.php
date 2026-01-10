@@ -10,8 +10,8 @@ class ReportController extends Controller
 {
     public function index()
     {
-        $reports = Report::with(['category'])
-            ->where('status', '!=', 'draft')
+        $reports = Report::with(['category', 'user'])
+            ->whereIn('status', ['pending', 'reviewing', 'investigating', 'resolved', 'closed'])
             ->latest()
             ->paginate(12);
 
@@ -19,18 +19,17 @@ class ReportController extends Controller
     }
 
     public function track(Request $request)
-{
-    $report = null;
+    {
+        $report = null;
 
-    if ($request->has('report_number') && $request->report_number) {
-        $report = Report::with(['category', 'user'])
-            ->where('report_number', $request->report_number)
-            ->first();
+        if ($request->has('report_number') && $request->report_number) {
+            $report = Report::with(['category', 'user'])
+                ->where('report_number', $request->report_number)
+                ->first();
+        }
+
+        return view('reports.track', compact('report'));
     }
-
-    return view('reports.track', compact('report'));
-}
-
 
     public function create()
     {
@@ -53,31 +52,68 @@ class ReportController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
             'category_id' => 'required|exists:categories,id',
-            'location' => 'required|string',
-            'image' => 'nullable|image|max:2048',
+            'incident_type' => 'nullable|string|max:255',
+            'description' => 'required|string|min:20',
+            'location' => 'required|string|max:255',
+            'address' => 'nullable|string|max:500',
+            'date' => 'required|date|before_or_equal:today',
+            'time' => 'nullable|date_format:H:i',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $validated['user_id'] = auth()->id();
-        $validated['report_number'] = 'RPT-' . strtoupper(uniqid());
-        $validated['status'] = 'pending';
+        // Generate unique report number
+        $reportNumber = 'RPT-' . strtoupper(uniqid());
 
+        // Handle image upload
+        $evidenceFiles = [];
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('reports', 'public');
+            $path = $request->file('image')->store('reports', 'public');
+            $evidenceFiles[] = [
+                'type' => 'image',
+                'path' => $path,
+                'filename' => $request->file('image')->getClientOriginalName(),
+            ];
         }
 
-        $report = Report::create($validated);
+        // Create report with correct field mapping
+        $report = Report::create([
+            'report_number' => $reportNumber,
+            'user_id' => auth()->id(),
+            'category_id' => $validated['category_id'],
 
-        return redirect()->route('reports.success', $report->report_number);
+            // Map form fields to database columns
+            'incident_type' => $validated['incident_type'] ?? 'umum',
+            'incident_description' => $validated['description'],
+            'incident_location' => $validated['location'],
+            'incident_address' => $validated['address'] ?? null,
+            'incident_date' => $validated['date'],
+            'incident_time' => $validated['time'] ?? null,
+
+            // Evidence files as JSON
+            'evidence_files' => !empty($evidenceFiles) ? json_encode($evidenceFiles) : null,
+
+            // Default status values
+            'status' => 'pending',
+            'priority' => 'medium',
+            'severity' => 'moderate',
+            'is_anonymous' => false,
+        ]);
+
+        return redirect()->route('reports.success', $report->report_number)
+            ->with('success', 'Laporan berhasil dikirim!');
     }
 
     public function success($reportNumber)
     {
         $report = Report::where('report_number', $reportNumber)
-            ->where('user_id', auth()->id())
+            ->with('category')
             ->firstOrFail();
+
+        // Allow user to see their own report or if report is not anonymous
+        if ($report->user_id !== auth()->id() && !$report->is_anonymous) {
+            abort(403, 'Akses tidak diizinkan');
+        }
 
         return view('reports.success', compact('report'));
     }

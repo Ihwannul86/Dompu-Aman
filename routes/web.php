@@ -26,6 +26,11 @@ Route::get('/about', [HomeController::class, 'about'])->name('about');
 Route::get('/contact', [HomeController::class, 'contact'])->name('contact');
 Route::post('/contact', [HomeController::class, 'contactSubmit'])->name('contact.submit');
 
+// CSRF Refresh Route (Fix 419 Page Expired Error)
+Route::get('/refresh-csrf', function() {
+    return response()->json(['token' => csrf_token()]);
+})->middleware('web');
+
 /*
 |--------------------------------------------------------------------------
 | Authentication Routes
@@ -94,6 +99,15 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Articles Management - RESOURCE ROUTE LENGKAP
+    Route::get('/articles', [AdminArticleController::class, 'index'])->name('articles.index');
+    Route::get('/articles/create', [AdminArticleController::class, 'create'])->name('articles.create');
+    Route::post('/articles', [AdminArticleController::class, 'store'])->name('articles.store');
+    Route::get('/articles/{id}', [AdminArticleController::class, 'show'])->name('articles.show');
+    Route::get('/articles/{id}/edit', [AdminArticleController::class, 'edit'])->name('articles.edit');
+    Route::put('/articles/{id}', [AdminArticleController::class, 'update'])->name('articles.update');
+    Route::delete('/articles/{id}', [AdminArticleController::class, 'destroy'])->name('articles.destroy');
+
     // Reports Management
     Route::get('/reports', function() {
         if (!in_array(auth()->user()->role, ['admin', 'moderator'])) abort(403);
@@ -113,32 +127,39 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         return view('admin.reports.show', compact('report'));
     })->name('reports.show');
 
-    // Articles Management
-    Route::get('/articles', function() {
+    // Update Report Status
+    Route::post('/reports/{report}/update-status', function(\App\Models\Report $report, \Illuminate\Http\Request $request) {
         if (!in_array(auth()->user()->role, ['admin', 'moderator'])) abort(403);
 
-        $articles = \App\Models\Article::with('author')
-            ->latest()
-            ->paginate(20);
+        $validated = $request->validate([
+            'status' => 'required|in:pending,reviewing,investigating,resolved,rejected,closed',
+            'admin_notes' => 'nullable|string',
+            'priority' => 'nullable|in:low,medium,high,urgent',
+            'severity' => 'nullable|in:minor,moderate,serious,critical',
+        ]);
 
-        return view('admin.articles.index', compact('articles'));
-    })->name('articles.index');
+        $oldStatus = $report->status;
 
-    Route::get('/articles/create', function() {
-        if (!in_array(auth()->user()->role, ['admin', 'moderator'])) abort(403);
+        // Update report
+        $report->update([
+            'status' => $validated['status'],
+            'admin_notes' => $validated['admin_notes'] ?? $report->admin_notes,
+            'priority' => $validated['priority'] ?? $report->priority,
+            'severity' => $validated['severity'] ?? $report->severity,
+            'resolved_at' => $validated['status'] === 'resolved' ? now() : $report->resolved_at,
+        ]);
 
-        $categories = \App\Models\Category::where('type', 'article')->get();
+        // Create status history
+        \App\Models\ReportStatusHistory::create([
+            'report_id' => $report->id,
+            'user_id' => auth()->id(),
+            'from_status' => $oldStatus,
+            'to_status' => $validated['status'],
+            'notes' => $validated['admin_notes'] ?? 'Status diubah menjadi ' . $validated['status'],
+        ]);
 
-        return view('admin.articles.create', compact('categories'));
-    })->name('articles.create');
-
-    Route::get('/articles/{article}', function(\App\Models\Article $article) {
-        if (!in_array(auth()->user()->role, ['admin', 'moderator'])) abort(403);
-
-        $article->load('author');
-
-        return view('admin.articles.show', compact('article'));
-    })->name('articles.show');
+        return back()->with('success', 'Status laporan berhasil diupdate!');
+    })->name('reports.updateStatus');
 
     // Forums Management
     Route::get('/forums', function() {
@@ -218,12 +239,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         return redirect()->route('admin.categories.index')
             ->with('success', 'Kategori berhasil ditambahkan!');
     })->name('categories.store');
-
-    // Resource routes (when controllers are ready)
-    // Route::resource('articles', AdminArticleController::class);
-    // Route::resource('reports', AdminReportController::class);
-    // Route::resource('forums', AdminForumController::class);
-    // Route::resource('users', UserController::class);
 });
 
 /*

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('reporter_email')->nullable();
             $table->boolean('is_anonymous')->default(false);
 
-            $table->string('incident_type'); // Jenis kekerasan
+            $table->string('incident_type')->default('umum'); // Jenis kekerasan
             $table->text('incident_description');
             $table->string('incident_location');
             $table->string('incident_address')->nullable();

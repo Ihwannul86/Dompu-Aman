@@ -38,7 +38,7 @@
                             </button>
                         </div>
                         <p class="text-sm text-gray-500 mt-2">
-                            Contoh: RPT-65A1B2C3D4E5F
+                            Contoh: {{ 'RPT-' . strtoupper(substr(md5(time()), 0, 12)) }}
                         </p>
                     </div>
                 </form>
@@ -61,13 +61,13 @@
                                         <span class="inline-block px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-semibold">
                                             Pending
                                         </span>
-                                    @elseif($report->status == 'verified')
+                                    @elseif($report->status == 'reviewing')
                                         <span class="inline-block px-4 py-2 bg-blue-500 text-white rounded-full text-sm font-semibold">
-                                            Terverifikasi
+                                            Sedang Ditinjau
                                         </span>
-                                    @elseif($report->status == 'in_progress')
+                                    @elseif($report->status == 'investigating')
                                         <span class="inline-block px-4 py-2 bg-purple-500 text-white rounded-full text-sm font-semibold">
-                                            Diproses
+                                            Sedang Diselidiki
                                         </span>
                                     @elseif($report->status == 'resolved')
                                         <span class="inline-block px-4 py-2 bg-green-500 text-white rounded-full text-sm font-semibold">
@@ -78,6 +78,10 @@
                                         <span class="inline-block px-4 py-2 bg-red-500 text-white rounded-full text-sm font-semibold">
                                             Ditolak
                                         </span>
+                                    @elseif($report->status == 'closed')
+                                        <span class="inline-block px-4 py-2 bg-gray-500 text-white rounded-full text-sm font-semibold">
+                                            Ditutup
+                                        </span>
                                     @endif
                                 </div>
                             </div>
@@ -85,11 +89,8 @@
 
                         <!-- Content -->
                         <div class="p-6">
-                            <!-- Title -->
-                            <h2 class="text-2xl font-bold text-gray-900 mb-4">{{ $report->title }}</h2>
-
                             <!-- Info Grid -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div class="flex items-start space-x-3">
                                     <i class="fas fa-tag text-primary-600 mt-1"></i>
                                     <div>
@@ -99,15 +100,39 @@
                                 </div>
 
                                 <div class="flex items-start space-x-3">
+                                    <i class="fas fa-exclamation-circle text-primary-600 mt-1"></i>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Jenis Insiden</p>
+                                        <p class="font-medium text-gray-900 capitalize">{{ $report->incident_type }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start space-x-3">
                                     <i class="fas fa-map-marker-alt text-primary-600 mt-1"></i>
                                     <div>
                                         <p class="text-sm text-gray-500">Lokasi</p>
-                                        <p class="font-medium text-gray-900">{{ $report->location }}</p>
+                                        <p class="font-medium text-gray-900">{{ $report->incident_location }}</p>
+                                        @if($report->incident_address)
+                                            <p class="text-sm text-gray-600">{{ $report->incident_address }}</p>
+                                        @endif
                                     </div>
                                 </div>
 
                                 <div class="flex items-start space-x-3">
                                     <i class="fas fa-calendar text-primary-600 mt-1"></i>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Tanggal Kejadian</p>
+                                        <p class="font-medium text-gray-900">
+                                            {{ \Carbon\Carbon::parse($report->incident_date)->format('d M Y') }}
+                                            @if($report->incident_time)
+                                                , {{ \Carbon\Carbon::parse($report->incident_time)->format('H:i') }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-file-alt text-primary-600 mt-1"></i>
                                     <div>
                                         <p class="text-sm text-gray-500">Tanggal Laporan</p>
                                         <p class="font-medium text-gray-900">{{ $report->created_at->format('d M Y, H:i') }}</p>
@@ -121,21 +146,92 @@
                                         <p class="font-medium text-gray-900">{{ $report->updated_at->diffForHumans() }}</p>
                                     </div>
                                 </div>
+
+                                @if($report->priority)
+                                    <div class="flex items-start space-x-3">
+                                        <i class="fas fa-flag text-primary-600 mt-1"></i>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Prioritas</p>
+                                            <p class="font-medium text-gray-900 capitalize">
+                                                @if($report->priority == 'low')
+                                                    <span class="text-green-600">Rendah</span>
+                                                @elseif($report->priority == 'medium')
+                                                    <span class="text-blue-600">Sedang</span>
+                                                @elseif($report->priority == 'high')
+                                                    <span class="text-orange-600">Tinggi</span>
+                                                @elseif($report->priority == 'urgent')
+                                                    <span class="text-red-600">Mendesak</span>
+                                                @endif
+                                            </p>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                @if($report->severity)
+                                    <div class="flex items-start space-x-3">
+                                        <i class="fas fa-exclamation-triangle text-primary-600 mt-1"></i>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Tingkat Keparahan</p>
+                                            <p class="font-medium text-gray-900 capitalize">
+                                                @if($report->severity == 'minor')
+                                                    Ringan
+                                                @elseif($report->severity == 'moderate')
+                                                    Sedang
+                                                @elseif($report->severity == 'serious')
+                                                    Serius
+                                                @elseif($report->severity == 'critical')
+                                                    Kritis
+                                                @endif
+                                            </p>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
 
                             <!-- Description -->
                             <div class="mb-6">
                                 <h3 class="font-semibold text-gray-900 mb-2">Deskripsi</h3>
-                                <p class="text-gray-600 leading-relaxed">{{ $report->description }}</p>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <p class="text-gray-700 leading-relaxed whitespace-pre-line">{{ $report->incident_description }}</p>
+                                </div>
                             </div>
 
-                            <!-- Image -->
-                            @if($report->image)
+                            <!-- Evidence Files -->
+                            @if($report->evidence_files)
                                 <div class="mb-6">
-                                    <h3 class="font-semibold text-gray-900 mb-2">Bukti Foto</h3>
-                                    <img src="{{ Storage::url($report->image) }}"
-                                         alt="Bukti"
-                                         class="rounded-lg max-w-full h-auto">
+                                    <h3 class="font-semibold text-gray-900 mb-3">Bukti</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        @php
+                                            $evidences = is_string($report->evidence_files) ? json_decode($report->evidence_files, true) : $report->evidence_files;
+                                        @endphp
+                                        @foreach($evidences ?? [] as $evidence)
+                                            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                                <img src="{{ Storage::url($evidence['path'] ?? $evidence) }}"
+                                                     alt="Bukti"
+                                                     class="w-full h-48 object-cover">
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            <!-- Admin Notes -->
+                            @if($report->admin_notes)
+                                <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <h3 class="font-semibold text-blue-900 mb-2">
+                                        <i class="fas fa-comment-dots mr-2"></i>Catatan Admin
+                                    </h3>
+                                    <p class="text-blue-800 text-sm">{{ $report->admin_notes }}</p>
+                                </div>
+                            @endif
+
+                            <!-- Resolution Notes -->
+                            @if($report->resolution_notes)
+                                <div class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h3 class="font-semibold text-green-900 mb-2">
+                                        <i class="fas fa-check-circle mr-2"></i>Catatan Penyelesaian
+                                    </h3>
+                                    <p class="text-green-800 text-sm">{{ $report->resolution_notes }}</p>
                                 </div>
                             @endif
 
@@ -153,26 +249,26 @@
                                         </div>
                                     </div>
 
-                                    @if($report->status != 'pending')
+                                    @if(in_array($report->status, ['reviewing', 'investigating', 'resolved', 'closed']))
                                         <div class="flex items-start space-x-4">
                                             <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                <i class="fas fa-check text-blue-600"></i>
+                                                <i class="fas fa-eye text-blue-600"></i>
                                             </div>
                                             <div class="flex-1">
-                                                <p class="font-medium text-gray-900">Terverifikasi</p>
-                                                <p class="text-sm text-gray-500">Laporan telah diverifikasi oleh tim</p>
+                                                <p class="font-medium text-gray-900">Sedang Ditinjau</p>
+                                                <p class="text-sm text-gray-500">Laporan sedang ditinjau oleh tim</p>
                                             </div>
                                         </div>
                                     @endif
 
-                                    @if(in_array($report->status, ['in_progress', 'resolved']))
+                                    @if(in_array($report->status, ['investigating', 'resolved', 'closed']))
                                         <div class="flex items-start space-x-4">
                                             <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                                <i class="fas fa-spinner text-purple-600"></i>
+                                                <i class="fas fa-search text-purple-600"></i>
                                             </div>
                                             <div class="flex-1">
-                                                <p class="font-medium text-gray-900">Sedang Diproses</p>
-                                                <p class="text-sm text-gray-500">Tim kami sedang menangani laporan Anda</p>
+                                                <p class="font-medium text-gray-900">Sedang Diselidiki</p>
+                                                <p class="text-sm text-gray-500">Tim sedang menangani laporan Anda</p>
                                             </div>
                                         </div>
                                     @endif
@@ -184,7 +280,9 @@
                                             </div>
                                             <div class="flex-1">
                                                 <p class="font-medium text-gray-900">Selesai</p>
-                                                <p class="text-sm text-gray-500">Laporan telah diselesaikan</p>
+                                                <p class="text-sm text-gray-500">
+                                                    {{ $report->resolved_at ? $report->resolved_at->format('d M Y, H:i') : 'Laporan telah diselesaikan' }}
+                                                </p>
                                             </div>
                                         </div>
                                     @endif
@@ -197,8 +295,20 @@
                                             <div class="flex-1">
                                                 <p class="font-medium text-gray-900">Ditolak</p>
                                                 <p class="text-sm text-gray-500">
-                                                    {{ $report->rejection_reason ?? 'Laporan tidak memenuhi kriteria' }}
+                                                    {{ $report->admin_notes ?? 'Laporan tidak memenuhi kriteria' }}
                                                 </p>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if($report->status == 'closed')
+                                        <div class="flex items-start space-x-4">
+                                            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <i class="fas fa-archive text-gray-600"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-900">Ditutup</p>
+                                                <p class="text-sm text-gray-500">Laporan telah ditutup</p>
                                             </div>
                                         </div>
                                     @endif

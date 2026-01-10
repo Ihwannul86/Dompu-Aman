@@ -38,7 +38,7 @@
 
                 <!-- Articles -->
                 <li>
-                    <a href="{{ route('admin.articles.index') }}" class="flex items-center space-x-3 px-4 py-3 rounded-lg {{ request()->routeIs('admin.articles.*') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100' }} transition">
+                    <a href="{{ url('/admin/articles') }}" class="flex items-center space-x-3 px-4 py-3 rounded-lg {{ request()->is('admin/articles*') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100' }} transition">
                         <i class="fas fa-newspaper w-5"></i>
                         <span class="font-medium">Artikel</span>
                     </a>
